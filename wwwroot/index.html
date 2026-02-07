@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mathematical Knot Visualizer</title>
+    <base href="/" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+</head>
+
+<body>
+    <div id="app">
+        <div
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #594AE2;">
+            <svg style="width: 64px; height: 64px; animation: spin 2s linear infinite;" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
+            </svg>
+            <p style="margin-top: 20px; font-family: 'Inter', sans-serif; font-size: 18px;">Loading Knot Visualizer...
+            </p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="babylon-scene.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,124 @@
+@page "/"
+@namespace KnotVisualizer.Pages
+@using KnotVisualizer.Models
+@using System.Numerics
+@inject IJSRuntime JS
+
+<PageTitle>Knot Visualizer</PageTitle>
+
+<div style="position: relative; width: 100%; height: calc(100vh - 64px); overflow: hidden;">
+    <canvas id="renderCanvas" style="width: 100%; height: 100%; display: block; outline: none;"></canvas>
+    <!-- Control Panel -->
+    <MudPaper Elevation="0" Class="control-panel pa-4" Style="position: absolute; right: 20px; top: 20px; width: 340px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border-radius: 16px; border: 1px solid rgba(255,255,255,0.5);">
+        <MudText Typo="Typo.h6" Class="mb-4" Style="color: #1A1A2E; font-weight: 700;">Knot Controls</MudText>
+        
+        <MudSelect T="KnotType" Label="Knot Type" @bind-Value="@_parameters.Type" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" AnchorOrigin="Origin.BottomCenter">
+            <MudSelectItem Value="@KnotType.Trefoil">Trefoil (3,2)</MudSelectItem>
+            <MudSelectItem Value="@KnotType.FigureEight">Figure-Eight</MudSelectItem>
+            <MudSelectItem Value="@KnotType.CinquefoilKnot">Cinquefoil (5,2)</MudSelectItem>
+            <MudSelectItem Value="@KnotType.Lissajous">Lissajous (Harmonic)</MudSelectItem>
+            <MudSelectItem Value="@KnotType.Celtic">Celtic Star (Woven)</MudSelectItem>
+            <MudSelectItem Value="@KnotType.TorusKnot">Custom Torus</MudSelectItem>
+        </MudSelect>
+
+        @if (_parameters.Type == KnotType.TorusKnot)
+        {
+            <div class="d-flex gap-2">
+                <MudNumericField @bind-Value="_parameters.P" Label="P (Meridian)" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2" Min="1" Max="20" />
+                <MudNumericField @bind-Value="_parameters.Q" Label="Q (Longitude)" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Min="1" Max="20" />
+            </div>
+        }
+        else if (_parameters.Type == KnotType.Lissajous)
+        {
+             <div class="d-flex gap-2 mb-2">
+                <MudNumericField @bind-Value="_parameters.LissajousNx" Label="Freq X" Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="10" />
+                <MudNumericField @bind-Value="_parameters.LissajousNy" Label="Freq Y" Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="10" />
+                <MudNumericField @bind-Value="_parameters.LissajousNz" Label="Freq Z" Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Max="10" />
+            </div>
+        }
+
+        <MudText Typo="Typo.caption" Class="mt-2 mb-1" Style="color: #6B6B8D;">Tube Radius: @_parameters.TubeRadius.ToString("F2")</MudText>
+        <MudSlider @bind-Value="_parameters.TubeRadius" Min="0.05" Max="0.8" Step="0.05" Color="Color.Primary" Size="Size.Small" />
+
+        <MudText Typo="Typo.caption" Class="mt-2 mb-1" Style="color: #6B6B8D;">Scale: @_parameters.Scale.ToString("F1")</MudText>
+        <MudSlider @bind-Value="_parameters.Scale" Min="1.0" Max="6.0" Step="0.1" Color="Color.Primary" Size="Size.Small" />
+
+        <MudText Typo="Typo.caption" Class="mt-2 mb-1" Style="color: #6B6B8D;">Resolution: @_parameters.Resolution</MudText>
+        <MudSlider @bind-Value="_parameters.Resolution" Min="50" Max="400" Step="10" Color="Color.Primary" Size="Size.Small" />
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="UpdateKnot" Class="mb-2" DropShadow="false" Style="border-radius: 8px; font-weight: 600;">
+            Update Geometry
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true" OnClick="ResetCamera" Style="border-radius: 8px;">
+            Reset Camera
+        </MudButton>
+
+        <MudText Typo="Typo.caption" Class="mt-3" Style="color: #6B6B8D; text-align: center; display: block;">
+            Drag to Rotate • Scroll to Zoom
+        </MudText>
+    </MudPaper>
+
+    <MudPaper Elevation="0" Class="pa-3" Style="position: absolute; left: 20px; bottom: 20px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.5);">
+        <MudText Typo="Typo.body2" Style="color: #1A1A2E;">
+            <b style="color: #00C853;">@GetKnotName()</b><br />
+            <span style="color: #6B6B8D; font-size: 0.85em;">Vertices: @_vertexCount | Faces: @_faceCount</span>
+        </MudText>
+    </MudPaper>
+</div>
+
+@code {
+    private KnotParameters _parameters = new KnotParameters();
+    private int _vertexCount = 0;
+    private int _faceCount = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeScene();
+            await UpdateKnot();
+        }
+    }
+
+    private async Task InitializeScene()
+    {
+        await JS.InvokeVoidAsync("initBabylonScene");
+    }
+
+    private async Task UpdateKnot()
+    {
+        var vertices = KnotGeometry.GenerateTubeVertices(_parameters);
+        var indices = KnotGeometry.GenerateTubeIndices(_parameters.Resolution, _parameters.TubularSegments);
+
+        _vertexCount = vertices.Count;
+        _faceCount = indices.Count / 3;
+
+        var vertexData = vertices.SelectMany(v => new[] { v.X, v.Y, v.Z }).ToArray();
+        var indexData = indices.ToArray();
+
+        await JS.InvokeVoidAsync("updateKnotMesh", vertexData, indexData);
+        StateHasChanged();
+    }
+
+    private async Task ResetCamera()
+    {
+        await JS.InvokeVoidAsync("resetCamera");
+    }
+
+    private string GetKnotName()
+    {
+        return _parameters.Type switch
+        {
+            KnotType.Trefoil => "Trefoil Knot (3,2)",
+            KnotType.FigureEight => "Figure-Eight Knot",
+            KnotType.CinquefoilKnot => "Cinquefoil Knot (5,2)",
+            KnotType.Lissajous => $"Lissajous ({_parameters.LissajousNx}, {_parameters.LissajousNy}, {_parameters.LissajousNz})",
+            KnotType.Celtic => "Celtic Star Knot",
+            KnotType.TorusKnot => $"Torus Knot ({_parameters.P},{_parameters.Q})",
+            _ => "Unknown Knot"
+        };
+    }
+}
